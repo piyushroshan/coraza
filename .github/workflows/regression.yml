@@ -26,8 +26,22 @@ jobs:
       run: go test -v -coverpkg=./... -coverprofile=coverage-waf.out ./...
     - name: SonarCloud Scan
       # We only push sonarcloud for golang v1.17.x
-      if: ${{ matrix.go-version == '1.17.x' }}
+      if: ${{ matrix.go-version == '1.17.x' && github.repository_owner == 'corazawaf' }}
       uses: sonarsource/sonarcloud-github-action@master
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    - name: Remote Coverage
+      if: ${{ matrix.go-version == '1.17.x' && github.repository_owner != 'corazawaf' }}
+      env:
+        TESTCOVERAGE_THRESHOLD: 50
+      run: |
+        echo "Validating coverage..."
+        coverage = `cat coverage-waf.out| grep total | grep -Eo '[0-9]+\.[0-9]+'`
+        echo "Current coverage: %coverage %"
+        if [ "$coverage" -lt "$TESTCOVERAGE_THRESHOLD" ]; then
+          echo "Coverage is below threshold: $coverage"
+          exit 1
+        else
+          echo "Coverage is OK: $coverage"
+        fi
