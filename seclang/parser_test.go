@@ -18,6 +18,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/corazawaf/coraza/v2"
@@ -111,6 +112,30 @@ func TestHardcodedIncludeDirectiveDDOS2(t *testing.T) {
 	tmpFile.Close()
 	if err := p.FromFile(tmpFile.Name()); err == nil {
 		t.Error("Include directive should fail in case of a lot of recursion")
+	}
+}
+
+func TestHardcodedIncludeRelativeDirectory(t *testing.T) {
+	waf := coraza.NewWaf()
+	p, _ := NewParser(waf)
+	tmpFile, err := os.CreateTemp(os.TempDir(), "rand1*.conf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpFile2, err := os.CreateTemp(os.TempDir(), "rand2*.conf")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	w := bufio.NewWriter(tmpFile)
+	data := fmt.Sprintf("Include %s\n", filepath.Base(tmpFile2.Name()))
+	if _, err := w.WriteString(data); err != nil {
+		t.Fatal(err)
+	}
+	w.Flush()
+	tmpFile.Close()
+	if err := p.FromFile(tmpFile.Name()); err != nil {
+		t.Error("Include directive should not fail to parse relative path")
 	}
 }
 

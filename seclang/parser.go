@@ -38,6 +38,7 @@ type Parser struct {
 	currentLine  int
 	currentFile  string
 	currentDir   string
+	originalDir  string // unlike currentDir, it doesn't change over includes
 	includeCount int
 }
 
@@ -60,6 +61,9 @@ func (p *Parser) FromFile(profilePath string) error {
 	for _, profilePath := range files {
 		p.currentFile = profilePath
 		p.currentDir = filepath.Dir(profilePath)
+		if p.originalDir == "" {
+			p.originalDir = p.currentDir
+		}
 		file, err := os.ReadFile(profilePath)
 		if err != nil {
 			p.options.Waf.Logger.Error(err.Error(),
@@ -129,6 +133,10 @@ func (p *Parser) evaluate(data string) error {
 		// we cannot add it as a directive type because there are recursion issues
 		// note a user might still include another file that includes the original file
 		// generating a DDOS attack
+		if !filepath.IsAbs(opts) {
+			// if the path is relative, we merge it with p.originalDir
+			opts = filepath.Join(p.originalDir, opts)
+		}
 		if p.includeCount >= maxIncludeRecursion {
 			return fmt.Errorf("cannot include more than %d files", maxIncludeRecursion)
 		}
