@@ -64,13 +64,13 @@ func (m MatchData) ChainLevel() int {
 	return m.ChainLevel_
 }
 
-func (m *MatchData) DataMetadata() experimentalTypes.DataMetadataList {
+func (m *MatchData) IsInScope(allowedMetadatas []experimentalTypes.DataMetadata) bool {
 	// Evaluate the metadata if it's not set
 	if m.Metadata_ == nil {
 		m.Metadata_ = &experimentalTypes.DataMetadataList{}
 	}
-	m.Metadata_.EvaluateMetadata(m.Value_)
-	return *m.Metadata_
+	m.Metadata_.EvaluateMetadata(m.Value_, allowedMetadatas)
+	return m.Metadata_.IsInScope(allowedMetadatas)
 }
 
 // ActionName is used to identify an action.
