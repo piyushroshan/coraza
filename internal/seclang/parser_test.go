@@ -65,11 +65,6 @@ func TestAllowedMetadataTags(t *testing.T) {
 		t.Error("Transaction interrupted")
 	}
 	matchedRules := tx.MatchedRules()
-	// PRINT ALL THE MATCHES
-	for _, m := range matchedRules {
-		fmt.Println(m.Rule().ID())
-		fmt.Println(m.Rule().Tags())
-	}
 	if len(matchedRules) != 4 {
 		t.Errorf("Expected 4 matched rule, got %d", len(matchedRules))
 	}
@@ -289,7 +284,7 @@ func BenchmarkAllowedMetadataTagsInspectionDisabled(b *testing.B) {
 		}
 		matchedRules := tx.MatchedRules()
 		if len(matchedRules) != 9 {
-			b.Errorf("Expected 1 matched rule, got %d", len(matchedRules))
+			b.Errorf("Expected 9 matched rule, got %d", len(matchedRules))
 		}
 		tx.Close()
 	}
