@@ -1,7 +1,6 @@
 package types
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -84,21 +83,25 @@ func TestEvaluateMetadata(t *testing.T) {
 
 }
 
-// Test to try out multiple iterations of adding metadata to the list
-func TestEvaluateMetadataMultiple(t *testing.T) {
-	// dataList := NewDataMetadataList()
-	// dataList.EvaluateMetadata("abc123", []DataMetadata{NotValueMetadataURI})
-
+func TestEvaluateMultipleMetadata(t *testing.T) {
 	dataList := NewDataMetadataList()
-	dataList.EvaluateMetadata(strings.Repeat("a", 1000)+"bcdefghijklmnopqrstuvwxyz", []DataMetadata{NotValueMetadataAlphanumeric})
+	dataList.EvaluateMetadata("abc123", []DataMetadata{ValueMetadataAlphanumeric, ValueMetadataAscii, ValueMetadataNumeric})
 
-	if !dataList.EvaluationMap[ValueMetadataAlphanumeric].Evaluated {
-		t.Errorf("Expected alphanumeric evaluation not done, but got true")
+	if !dataList.EvaluationMap[ValueMetadataAlphanumeric].Result {
+		t.Errorf("Expected alphanumeric evaluation to be true, but got false")
+	}
+
+	if !dataList.EvaluationMap[ValueMetadataAscii].Result {
+		t.Errorf("Expected ascii evaluation to be true, but got false")
 	}
 	if dataList.EvaluationMap[ValueMetadataNumeric].Result {
-		t.Errorf("The result should be false, but got true. since it is not numeric")
+		t.Errorf("Expected numeric evaluation to be false, but got true")
 	}
-	if dataList.IsInScope([]DataMetadata{NotValueMetadataAlphanumeric}) {
-		t.Errorf("Expected to be out of scope, but got in scope")
+	// Make sure that other metadata evaluations are not done
+	if dataList.EvaluationMap[ValueMetadataURI].Evaluated {
+		t.Errorf("Expected URI evaluation to not be done, but got true")
+	}
+	if dataList.EvaluationMap[ValueMetadataBoolean].Evaluated {
+		t.Errorf("Expected boolean evaluation to not be done, but got true")
 	}
 }

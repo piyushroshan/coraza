@@ -70,6 +70,17 @@ var metadataStrings = map[string]DataMetadata{
 	"not_unicode":      NotValueMetadataUnicode,
 }
 
+// Evaluators provides a mapping of metadata to evaluator functions.
+var Evaluators = map[DataMetadata]Evaluator{
+	ValueMetadataAlphanumeric: evaluateAlphanumeric,
+	ValueMetadataAscii:        evaluateAscii,
+	ValueMetadataBase64:       evaluateBase64,
+	ValueMetadataURI:          evaluateURI,
+	ValueMetadataNumeric:      evaluateNumeric,
+	ValueMetadataBoolean:      evaluateBoolean,
+	ValueMetadataUnicode:      evaluateUnicode,
+}
+
 // NewValueMetadata returns a new ValueMetadata from a string.
 func NewValueMetadata(metadata string) (DataMetadata, bool) {
 	val, ok := metadataStrings[metadata]
@@ -90,17 +101,6 @@ func NewDataMetadataList() DataMetadataList {
 
 // Evaluator is a function that evaluates metadata.
 type Evaluator func(data string, metadata map[DataMetadata]EvaluationData)
-
-// Evaluators provides a mapping of metadata to evaluator functions.
-var Evaluators = map[DataMetadata]Evaluator{
-	ValueMetadataAlphanumeric: evaluateAlphanumeric,
-	ValueMetadataAscii:        evaluateAscii,
-	ValueMetadataBase64:       evaluateBase64,
-	ValueMetadataURI:          evaluateURI,
-	ValueMetadataNumeric:      evaluateNumeric,
-	ValueMetadataBoolean:      evaluateBoolean,
-	ValueMetadataUnicode:      evaluateUnicode,
-}
 
 // contains checks if a metadata type exists in a slice.
 func contains(metadata DataMetadata, allowedMetadatas map[DataMetadata]bool) bool {
