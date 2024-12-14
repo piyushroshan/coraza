@@ -18,9 +18,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/corazawaf/coraza/v3/collection"
 	"github.com/corazawaf/coraza/v3/debuglog"
+	"github.com/corazawaf/coraza/v3/experimental/collection"
 	"github.com/corazawaf/coraza/v3/experimental/plugins/plugintypes"
+	experimentalTypes "github.com/corazawaf/coraza/v3/experimental/types"
 	"github.com/corazawaf/coraza/v3/internal/auditlog"
 	"github.com/corazawaf/coraza/v3/internal/bodyprocessors"
 	"github.com/corazawaf/coraza/v3/internal/collections"
@@ -119,6 +120,8 @@ type Transaction struct {
 	// When a rule matches and contains r.Audit = true, this will be set to true
 	// it will write to the audit log
 	audit bool
+
+	AllowMetadataInspection bool
 
 	variables TransactionVariables
 
@@ -504,7 +507,7 @@ func (tx *Transaction) matchVariable(match *corazarules.MatchData) {
 }
 
 // MatchRule Matches a rule to be logged
-func (tx *Transaction) MatchRule(r *Rule, mds []types.MatchData) {
+func (tx *Transaction) MatchRule(r *Rule, mds []experimentalTypes.MatchData) {
 	tx.debugLogger.Debug().Int("rule_id", r.ID_).Msg("Rule matched")
 	// tx.MatchedRules = append(tx.MatchedRules, mr)
 
@@ -579,26 +582,28 @@ func (tx *Transaction) GetStopWatch() string {
 // GetField Retrieve data from collections applying exceptions
 // In future releases we may remove the exceptions slice and
 // make it easier to use
-func (tx *Transaction) GetField(rv ruleVariableParams) []types.MatchData {
+func (tx *Transaction) GetField(rv ruleVariableParams) []experimentalTypes.MatchData {
 	col := tx.Collection(rv.Variable)
 	if col == nil {
-		return []types.MatchData{}
+		return []experimentalTypes.MatchData{}
 	}
 
-	var matches []types.MatchData
+	var matches []experimentalTypes.MatchData
 	// Now that we have access to the collection, we can apply the exceptions
 	switch {
 	case rv.KeyRx != nil:
 		if m, ok := col.(collection.Keyed); ok {
 			matches = m.FindRegex(rv.KeyRx)
 		} else {
-			panic("attempted to use regex with non-selectable collection: " + rv.Variable.Name())
+			// This should probably never happen, selectability is checked at parsing time
+			tx.debugLogger.Error().Str("collection", rv.Variable.Name()).Msg("attempted to use regex with non-selectable collection")
 		}
 	case rv.KeyStr != "":
 		if m, ok := col.(collection.Keyed); ok {
 			matches = m.FindString(rv.KeyStr)
 		} else {
-			panic("attempted to use string with non-selectable collection: " + rv.Variable.Name())
+			// This should probably never happen, selectability is checked at parsing time
+			tx.debugLogger.Error().Str("collection", rv.Variable.Name()).Msg("attempted to use string with non-selectable collection")
 		}
 	default:
 		matches = col.FindAll()
@@ -626,7 +631,7 @@ func (tx *Transaction) GetField(rv ruleVariableParams) []types.MatchData {
 
 	if rv.Count {
 		count := len(matches)
-		matches = []types.MatchData{
+		matches = []experimentalTypes.MatchData{
 			&corazarules.MatchData{
 				Variable_: rv.Variable,
 				Key_:      rv.KeyStr,
@@ -635,6 +640,15 @@ func (tx *Transaction) GetField(rv ruleVariableParams) []types.MatchData {
 		}
 	}
 	return matches
+}
+
+func (tx *Transaction) SetMetadataInspection(allow bool) bool {
+	tx.AllowMetadataInspection = allow
+	return tx.AllowMetadataInspection
+}
+
+func (tx *Transaction) MetadataInspection() bool {
+	return tx.AllowMetadataInspection
 }
 
 // RemoveRuleTargetByID Removes the VARIABLE:KEY from the rule ID
@@ -1633,11 +1647,11 @@ type TransactionVariables struct {
 	args                     *collections.ConcatKeyed
 	argsCombinedSize         *collections.SizeCollection
 	argsGet                  *collections.NamedCollection
-	argsGetNames             collection.Collection
-	argsNames                *collections.ConcatCollection
+	argsGetNames             collection.Keyed
+	argsNames                *collections.ConcatKeyed
 	argsPath                 *collections.NamedCollection
 	argsPost                 *collections.NamedCollection
-	argsPostNames            collection.Collection
+	argsPostNames            collection.Keyed
 	duration                 *collections.Single
 	env                      *collections.Map
 	files                    *collections.Map
@@ -1653,7 +1667,7 @@ type TransactionVariables struct {
 	matchedVar               *collections.Single
 	matchedVarName           *collections.Single
 	matchedVars              *collections.NamedCollection
-	matchedVarsNames         collection.Collection
+	matchedVarsNames         collection.Keyed
 	multipartDataAfter       *collections.Single
 	multipartFilename        *collections.Map
 	multipartName            *collections.Map
@@ -1673,10 +1687,10 @@ type TransactionVariables struct {
 	requestBody              *collections.Single
 	requestBodyLength        *collections.Single
 	requestCookies           *collections.NamedCollection
-	requestCookiesNames      collection.Collection
+	requestCookiesNames      collection.Keyed
 	requestFilename          *collections.Single
 	requestHeaders           *collections.NamedCollection
-	requestHeadersNames      collection.Collection
+	requestHeadersNames      collection.Keyed
 	requestLine              *collections.Single
 	requestMethod            *collections.Single
 	requestProtocol          *collections.Single
@@ -1687,7 +1701,7 @@ type TransactionVariables struct {
 	responseContentLength    *collections.Single
 	responseContentType      *collections.Single
 	responseHeaders          *collections.NamedCollection
-	responseHeadersNames     collection.Collection
+	responseHeadersNames     collection.Keyed
 	responseProtocol         *collections.Single
 	responseStatus           *collections.Single
 	responseXML              *collections.Map
@@ -1819,7 +1833,7 @@ func NewTransactionVariables() *TransactionVariables {
 		v.argsPost,
 		v.argsPath,
 	)
-	v.argsNames = collections.NewConcatCollection(
+	v.argsNames = collections.NewConcatKeyed(
 		variables.ArgsNames,
 		v.argsGetNames,
 		v.argsPostNames,
@@ -2045,7 +2059,7 @@ func (v *TransactionVariables) MultipartName() collection.Map {
 	return v.multipartName
 }
 
-func (v *TransactionVariables) MatchedVarsNames() collection.Collection {
+func (v *TransactionVariables) MatchedVarsNames() collection.Keyed {
 	return v.matchedVarsNames
 }
 
@@ -2069,7 +2083,7 @@ func (v *TransactionVariables) FilesTmpContent() collection.Map {
 	return v.filesTmpContent
 }
 
-func (v *TransactionVariables) ResponseHeadersNames() collection.Collection {
+func (v *TransactionVariables) ResponseHeadersNames() collection.Keyed {
 	return v.responseHeadersNames
 }
 
@@ -2077,11 +2091,11 @@ func (v *TransactionVariables) ResponseArgs() collection.Map {
 	return v.responseArgs
 }
 
-func (v *TransactionVariables) RequestHeadersNames() collection.Collection {
+func (v *TransactionVariables) RequestHeadersNames() collection.Keyed {
 	return v.requestHeadersNames
 }
 
-func (v *TransactionVariables) RequestCookiesNames() collection.Collection {
+func (v *TransactionVariables) RequestCookiesNames() collection.Keyed {
 	return v.requestCookiesNames
 }
 
@@ -2101,15 +2115,15 @@ func (v *TransactionVariables) ResponseBodyProcessor() collection.Single {
 	return v.resBodyProcessor
 }
 
-func (v *TransactionVariables) ArgsNames() collection.Collection {
+func (v *TransactionVariables) ArgsNames() collection.Keyed {
 	return v.argsNames
 }
 
-func (v *TransactionVariables) ArgsGetNames() collection.Collection {
+func (v *TransactionVariables) ArgsGetNames() collection.Keyed {
 	return v.argsGetNames
 }
 
-func (v *TransactionVariables) ArgsPostNames() collection.Collection {
+func (v *TransactionVariables) ArgsPostNames() collection.Keyed {
 	return v.argsPostNames
 }
 
