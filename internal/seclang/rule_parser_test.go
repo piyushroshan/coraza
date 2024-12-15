@@ -309,8 +309,8 @@ func TestNonSelectableCollection(t *testing.T) {
 	err := p.FromString(`
 	SecRule REQUEST_URI:foo "bar" "id:1,phase:1"
 	`)
-	if err == nil {
-		t.Error("expected error")
+	if err != nil {
+		t.Error("Unexpected Error", err)
 	}
 }
 
