@@ -45,6 +45,17 @@ const (
 	NotValueMetadataUnicode
 )
 
+var MetadataMap = map[DataMetadata]DataMetadata{
+	NotValueMetadataAlphanumeric: ValueMetadataAlphanumeric,
+	NotValueMetadataAscii:        ValueMetadataAscii,
+	NotValueMetadataBase64:       ValueMetadataBase64,
+	NotValueMetadataURI:          ValueMetadataURI,
+	NotValueMetadataDomain:       ValueMetadataDomain,
+	NotValueMetadataNumeric:      ValueMetadataNumeric,
+	NotValueMetadataBoolean:      ValueMetadataBoolean,
+	NotValueMetadataUnicode:      ValueMetadataUnicode,
+}
+
 type EvaluationData struct {
 	Evaluated bool
 	Result    bool
@@ -196,15 +207,17 @@ func evaluateUnicode(data string, metadata map[DataMetadata]EvaluationData) {
 	metadata[ValueMetadataUnicode] = EvaluationData{Result: false, Evaluated: true}
 }
 
+// IsInScope checks if any of the given metadata types match the criteria.
 func (v *DataMetadataList) IsInScope(metadataTypes []DataMetadata) bool {
 	for _, metadataType := range metadataTypes {
-		// Check if metadataType starts with not_
-		if metadataType >= NotValueMetadataAlphanumeric {
-			if !v.EvaluationMap[metadataType-NotValueMetadataAlphanumeric].Result {
+		if positiveType, isNegative := MetadataMap[metadataType]; isNegative {
+			// Check negative metadata
+			if data, exists := v.EvaluationMap[positiveType]; exists && !data.Result {
 				return true
 			}
 		} else {
-			if v.EvaluationMap[metadataType].Result {
+			// Check positive metadata
+			if data, exists := v.EvaluationMap[metadataType]; exists && data.Result {
 				return true
 			}
 		}
