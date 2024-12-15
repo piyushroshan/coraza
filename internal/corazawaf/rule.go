@@ -250,6 +250,10 @@ func (r *Rule) doEvaluate(logger debuglog.Logger, phase types.RulePhase, tx *Tra
 			vLog.Debug().Msg("Expanding arguments for rule")
 			allowedMetadatas := r.AllowedMetadatas()
 			vLog.Debug().Msg("Allowed metadata for rule" + fmt.Sprint(allowedMetadatas))
+      
+      args := make([]string, 1)
+			var errs []error
+			var argsLen int
 			for i, arg := range values {
 				if tx.AllowMetadataInspection && len(allowedMetadatas) > 0 {
 					if !arg.IsInScope(allowedMetadatas) {
@@ -257,7 +261,13 @@ func (r *Rule) doEvaluate(logger debuglog.Logger, phase types.RulePhase, tx *Tra
 						continue
 					}
 				}
-				args, errs := r.transformArg(arg, i, cache)
+				if r.MultiMatch {
+					args, errs = r.transformMultiMatchArg(arg)
+					argsLen = len(args)
+				} else {
+					args[0], errs = r.transformArg(arg, i, cache)
+					argsLen = 1
+				}
 				if len(errs) > 0 {
 					vWarnLog := vLog.Warn()
 					if vWarnLog.IsEnabled() {
@@ -269,7 +279,7 @@ func (r *Rule) doEvaluate(logger debuglog.Logger, phase types.RulePhase, tx *Tra
 				}
 
 				// args represents the transformed variables
-				for _, carg := range args {
+				for _, carg := range args[:argsLen] {
 					evalLog := vLog.
 						Debug().
 						Str("operator_function", r.operator.Function).
@@ -395,42 +405,41 @@ func (r *Rule) doEvaluate(logger debuglog.Logger, phase types.RulePhase, tx *Tra
 	return matchedValues
 }
 
-func (r *Rule) transformArg(arg experimentalTypes.MatchData, argIdx int, cache map[transformationKey]*transformationValue) ([]string, []error) {
-	if r.MultiMatch {
-		// TODOs:
-		// - We don't need to run every transformation. We could try for each until found
-		// - Cache is not used for multimatch
-		return r.executeTransformationsMultimatch(arg.Value())
-	} else {
-		switch {
-		case len(r.transformations) == 0:
-			return []string{arg.Value()}, nil
-		case arg.Variable().Name() == "TX":
-			// no cache for TX
-			arg, errs := r.executeTransformations(arg.Value())
-			return []string{arg}, errs
-		default:
-			// NOTE: See comment on transformationKey struct to understand this hacky code
-			argKey := arg.Key()
-			argKeyPtr := unsafe.StringData(argKey)
-			key := transformationKey{
-				argKey:            argKeyPtr,
-				argIndex:          argIdx,
-				argVariable:       arg.Variable(),
-				transformationsID: r.transformationsID,
+func (r *Rule) transformMultiMatchArg(arg experimentalTypes.MatchData) ([]string, []error) {
+	// TODOs:
+	// - We don't need to run every transformation. We could try for each until found
+	// - Cache is not used for multimatch
+	return r.executeTransformationsMultimatch(arg.Value())
+}
+
+func (r *Rule) transformArg(arg experimentalTypes.MatchData, argIdx int, cache map[transformationKey]*transformationValue) (string, []error) {
+	switch {
+	case len(r.transformations) == 0:
+		return arg.Value(), nil
+	case arg.Variable().Name() == "TX":
+		// no cache for TX
+		arg, errs := r.executeTransformations(arg.Value())
+		return arg, errs
+	default:
+		// NOTE: See comment on transformationKey struct to understand this hacky code
+		argKey := arg.Key()
+		argKeyPtr := unsafe.StringData(argKey)
+		key := transformationKey{
+			argKey:            argKeyPtr,
+			argIndex:          argIdx,
+			argVariable:       arg.Variable(),
+			transformationsID: r.transformationsID,
+		}
+		if cached, ok := cache[key]; ok {
+			return cached.arg, cached.errs
+		} else {
+			ars, es := r.executeTransformations(arg.Value())
+			errs := es
+			cache[key] = &transformationValue{
+				arg:  ars,
+				errs: es,
 			}
-			if cached, ok := cache[key]; ok {
-				return cached.args, cached.errs
-			} else {
-				ars, es := r.executeTransformations(arg.Value())
-				args := []string{ars}
-				errs := es
-				cache[key] = &transformationValue{
-					args: args,
-					errs: es,
-				}
-				return args, errs
-			}
+			return ars, errs
 		}
 	}
 }

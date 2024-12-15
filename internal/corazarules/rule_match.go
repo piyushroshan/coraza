@@ -38,8 +38,6 @@ var _ types.MatchData = (*MatchData)(nil)
 
 var _ experimentalTypes.MatchData = (*MatchData)(nil)
 
-var _ experimentalTypes.MatchData = (*MatchData)(nil)
-
 func (m MatchData) Variable() variables.RuleVariable {
 	return m.Variable_
 }
