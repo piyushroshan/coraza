@@ -9,10 +9,11 @@ import (
 
 var _ = profile.RegisterProfile(profile.Profile{
 	Meta: profile.Meta{
-		Author:      "roshan.piyush",
-		Description: "Test if the matchers works",
-		Enabled:     true,
-		Name:        "metadatafilter.yaml",
+		Author:             "roshan.piyush",
+		Description:        "Test if the matchers works",
+		Enabled:            true,
+		Name:               "metadatafilter.yaml",
+		MetadataInspection: true,
 	},
 	Tests: []profile.Test{
 		{
@@ -37,7 +38,6 @@ var _ = profile.RegisterProfile(profile.Profile{
 							},
 							NonTriggeredRules: []int{
 								28,
-								29,
 								30,
 								31,
 							},
