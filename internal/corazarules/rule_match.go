@@ -31,41 +31,46 @@ type MatchData struct {
 	// Multiphase specific field
 	ChainLevel_ int
 	// Metadata of the matched data
-	Metadata_ experimentalTypes.DataMetadataList
+	Metadata_ *experimentalTypes.DataMetadataList
 }
 
 var _ types.MatchData = (*MatchData)(nil)
 
 var _ experimentalTypes.MatchData = (*MatchData)(nil)
 
-func (m *MatchData) Variable() variables.RuleVariable {
+var _ experimentalTypes.MatchData = (*MatchData)(nil)
+
+func (m MatchData) Variable() variables.RuleVariable {
 	return m.Variable_
 }
 
-func (m *MatchData) Key() string {
+func (m MatchData) Key() string {
 	return m.Key_
 }
 
-func (m *MatchData) Value() string {
+func (m MatchData) Value() string {
 	return m.Value_
 }
 
-func (m *MatchData) Message() string {
+func (m MatchData) Message() string {
 	return m.Message_
 }
 
-func (m *MatchData) Data() string {
+func (m MatchData) Data() string {
 	return m.Data_
 }
 
-func (m *MatchData) ChainLevel() int {
+func (m MatchData) ChainLevel() int {
 	return m.ChainLevel_
 }
 
-func (m *MatchData) Metadata() experimentalTypes.DataMetadataList {
+func (m *MatchData) IsInScope(allowedMetadatas []experimentalTypes.DataMetadata) bool {
 	// Evaluate the metadata if it's not set
-	m.Metadata_.Evaluate(m.Value_)
-	return m.Metadata_
+	if m.Metadata_ == nil {
+		m.Metadata_ = &experimentalTypes.DataMetadataList{}
+	}
+	m.Metadata_.EvaluateMetadata(m.Value_, allowedMetadatas)
+	return m.Metadata_.IsInScope(allowedMetadatas)
 }
 
 // ActionName is used to identify an action.

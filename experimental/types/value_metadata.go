@@ -3,6 +3,7 @@
 package types
 
 import (
+	"net/url"
 	"unicode"
 )
 
@@ -26,114 +27,186 @@ const (
 	ValueMetadataBoolean
 	// ValueMetadataUnicode represents a unicode value.
 	ValueMetadataUnicode
+	// NotValueMetadataAlphanumeric represents a non-alphanumeric value.
+	NotValueMetadataAlphanumeric
+	// NotValueMetadataAscii represents a non-ASCII value.
+	NotValueMetadataAscii
+	// NotValueMetadataBase64 represents a non-base64 value.
+	NotValueMetadataBase64
+	// NotValueMetadataURI represents a non-URI value.
+	NotValueMetadataURI
+	// NotValueMetadataDomain represents a non-domain value.
+	NotValueMetadataDomain
+	// NotValueMetadataNumeric represents a non-numeric value.
+	NotValueMetadataNumeric
+	// NotValueMetadataBoolean represents a non-boolean value.
+	NotValueMetadataBoolean
+	// NotValueMetadataUnicode represents a non-unicode value.
+	NotValueMetadataUnicode
 )
+
+type EvaluationData struct {
+	Evaluated bool
+	Result    bool
+}
+
+// MetadataStrings provides a mapping of strings to metadata for quick lookup.
+var metadataStrings = map[string]DataMetadata{
+	"numeric":          ValueMetadataNumeric,
+	"boolean":          ValueMetadataBoolean,
+	"alphanumeric":     ValueMetadataAlphanumeric,
+	"ascii":            ValueMetadataAscii,
+	"base64":           ValueMetadataBase64,
+	"uri":              ValueMetadataURI,
+	"domain":           ValueMetadataDomain,
+	"unicode":          ValueMetadataUnicode,
+	"not_numeric":      NotValueMetadataNumeric,
+	"not_boolean":      NotValueMetadataBoolean,
+	"not_alphanumeric": NotValueMetadataAlphanumeric,
+	"not_ascii":        NotValueMetadataAscii,
+	"not_base64":       NotValueMetadataBase64,
+	"not_uri":          NotValueMetadataURI,
+	"not_domain":       NotValueMetadataDomain,
+	"not_unicode":      NotValueMetadataUnicode,
+}
+
+// Evaluators provides a mapping of metadata to evaluator functions.
+var Evaluators = map[DataMetadata]Evaluator{
+	ValueMetadataAlphanumeric: evaluateAlphanumeric,
+	ValueMetadataAscii:        evaluateAscii,
+	ValueMetadataBase64:       evaluateBase64,
+	ValueMetadataURI:          evaluateURI,
+	ValueMetadataNumeric:      evaluateNumeric,
+	ValueMetadataBoolean:      evaluateBoolean,
+	ValueMetadataUnicode:      evaluateUnicode,
+}
 
 // NewValueMetadata returns a new ValueMetadata from a string.
 func NewValueMetadata(metadata string) (DataMetadata, bool) {
-	switch metadata {
-	case "numeric":
-		return ValueMetadataNumeric, true
-	case "boolean":
-		return ValueMetadataBoolean, true
-	case "alphanumeric":
-		return ValueMetadataAlphanumeric, true
-	case "ascii":
-		return ValueMetadataAscii, true
-	case "base64":
-		return ValueMetadataBase64, true
-	case "uri":
-		return ValueMetadataURI, true
-	case "domain":
-		return ValueMetadataDomain, true
-	case "unicode":
-		return ValueMetadataUnicode, true
-	}
-	return 0, false
+	val, ok := metadataStrings[metadata]
+	return val, ok
 }
 
-// DataMetadataList is a list of ValueMetadata.
+// DataMetadataList holds metadata and its evaluation state.
 type DataMetadataList struct {
-	metadata map[DataMetadata]bool
+	EvaluationMap map[DataMetadata]EvaluationData
 }
 
-func (v *DataMetadataList) Evaluate(data string) {
-	// we do the analysis only once
-	if v.metadata == nil {
-		v.metadata = make(map[DataMetadata]bool)
-		v.evaluateNumeric(data)
-		v.evaluateBoolean(data)
-		v.evaluateAlphanumeric(data)
-		v.evaluateAscii(data)
-		v.evaluateBase64(data)
-		// v.evaluateURI(data)
-		// v.evaluateDomain(data)
-		// v.evaluateUnicode(data)
+// NewDataMetadataList creates a new DataMetadataList with initialized fields.
+func NewDataMetadataList() DataMetadataList {
+	return DataMetadataList{
+		EvaluationMap: make(map[DataMetadata]EvaluationData),
 	}
 }
 
-func (v *DataMetadataList) evaluateAlphanumeric(data string) bool {
-	for _, c := range data {
-		if !unicode.IsLetter(c) && !unicode.IsNumber(c) {
-			v.metadata[ValueMetadataAlphanumeric] = false
-			break
+// Evaluator is a function that evaluates metadata.
+type Evaluator func(data string, metadata map[DataMetadata]EvaluationData)
+
+// contains checks if a metadata type exists in a slice.
+func contains(metadata DataMetadata, allowedMetadatas map[DataMetadata]bool) bool {
+	return allowedMetadatas[metadata]
+}
+
+// EvaluateMetadata evaluates the allowed metadata types on the data.
+func (v *DataMetadataList) EvaluateMetadata(data string, allowedMetadatas []DataMetadata) {
+	if v == nil {
+		return
+	}
+
+	allowedSet := make(map[DataMetadata]bool, len(allowedMetadatas))
+	for _, meta := range allowedMetadatas {
+		if meta >= NotValueMetadataAlphanumeric {
+			allowedSet[meta-NotValueMetadataAlphanumeric] = true
+			continue
+		}
+		allowedSet[meta] = true
+	}
+	// If Evaluation Map is empty, create one.
+	if len(v.EvaluationMap) == 0 {
+		v.EvaluationMap = make(map[DataMetadata]EvaluationData)
+	}
+	for metadataType, evaluator := range Evaluators {
+		if contains(metadataType, allowedSet) && !v.EvaluationMap[metadataType].Evaluated {
+			evaluator(data, v.EvaluationMap)
 		}
 	}
-	return v.metadata[ValueMetadataAlphanumeric]
 }
 
-func (v *DataMetadataList) evaluateAscii(data string) bool {
-	res := true
+// Evaluation functions
+func evaluateAlphanumeric(data string, metadata map[DataMetadata]EvaluationData) {
+	for _, c := range data {
+		if !unicode.IsLetter(c) && !unicode.IsNumber(c) && !unicode.IsSpace(c) {
+			metadata[ValueMetadataAlphanumeric] = EvaluationData{Result: false, Evaluated: true}
+			return
+		}
+	}
+	metadata[ValueMetadataAlphanumeric] = EvaluationData{Result: true, Evaluated: true}
+}
+
+func evaluateAscii(data string, metadata map[DataMetadata]EvaluationData) {
 	for i := 0; i < len(data); i++ {
 		if data[i] > unicode.MaxASCII {
-			res = false
-			break
+			metadata[ValueMetadataAscii] = EvaluationData{Result: false, Evaluated: true}
+			return
 		}
 	}
-	v.metadata[ValueMetadataAscii] = res
-	return res
+	metadata[ValueMetadataAscii] = EvaluationData{Result: true, Evaluated: true}
 }
 
-func isBase64(c byte) bool {
-	return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '/'
-}
-
-func (v *DataMetadataList) evaluateBase64(data string) bool {
-	res := true
+func evaluateBase64(data string, metadata map[DataMetadata]EvaluationData) {
 	for i := 0; i < len(data); i++ {
-		if !isBase64(data[i]) {
-			res = false
-			break
+		if !(data[i] >= 'A' && data[i] <= 'Z' ||
+			data[i] >= 'a' && data[i] <= 'z' ||
+			data[i] >= '0' && data[i] <= '9' ||
+			data[i] == '+' || data[i] == '/') {
+			metadata[ValueMetadataBase64] = EvaluationData{Result: false, Evaluated: true}
+			return
 		}
 	}
-	v.metadata[ValueMetadataBase64] = res
-	return res
+	metadata[ValueMetadataBase64] = EvaluationData{Result: true, Evaluated: true}
 }
 
-func (v *DataMetadataList) evaluateNumeric(data string) bool {
-	res := true
+func evaluateURI(data string, metadata map[DataMetadata]EvaluationData) {
+	u, err := url.Parse(data)
+	isURI := err == nil && u.Scheme != "" && u.Host != ""
+	metadata[ValueMetadataURI] = EvaluationData{Result: isURI}
+}
+
+func evaluateNumeric(data string, metadata map[DataMetadata]EvaluationData) {
 	for _, c := range data {
 		if !unicode.IsNumber(c) {
-			res = false
-			break
+			metadata[ValueMetadataNumeric] = EvaluationData{Result: false, Evaluated: true}
+			return
 		}
 	}
-	v.metadata[ValueMetadataNumeric] = res
-	return res
+	metadata[ValueMetadataNumeric] = EvaluationData{Result: true, Evaluated: true}
 }
 
-func (v *DataMetadataList) evaluateBoolean(data string) bool {
-	res := false
-	if data == "true" || data == "false" {
-		res = true
+func evaluateBoolean(data string, metadata map[DataMetadata]EvaluationData) {
+	metadata[ValueMetadataBoolean] = EvaluationData{Result: data == "true" || data == "false"}
+}
+
+func evaluateUnicode(data string, metadata map[DataMetadata]EvaluationData) {
+	for _, c := range data {
+		if c > unicode.MaxASCII {
+			metadata[ValueMetadataUnicode] = EvaluationData{Result: true, Evaluated: true}
+			return
+		}
 	}
-	v.metadata[ValueMetadataBoolean] = res
-	return res
+	metadata[ValueMetadataUnicode] = EvaluationData{Result: false, Evaluated: true}
 }
 
 func (v *DataMetadataList) IsInScope(metadataTypes []DataMetadata) bool {
 	for _, metadataType := range metadataTypes {
-		if v.metadata[metadataType] {
-			return true
+		// Check if metadataType starts with not_
+		if metadataType >= NotValueMetadataAlphanumeric {
+			if !v.EvaluationMap[metadataType-NotValueMetadataAlphanumeric].Result {
+				return true
+			}
+		} else {
+			if v.EvaluationMap[metadataType].Result {
+				return true
+			}
 		}
 	}
 	return false
