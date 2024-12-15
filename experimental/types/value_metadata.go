@@ -180,7 +180,7 @@ func evaluateBase64(data string, metadata map[DataMetadata]EvaluationData) {
 func evaluateURI(data string, metadata map[DataMetadata]EvaluationData) {
 	u, err := url.Parse(data)
 	isURI := err == nil && u.Scheme != "" && u.Host != ""
-	metadata[ValueMetadataURI] = EvaluationData{Result: isURI}
+	metadata[ValueMetadataURI] = EvaluationData{Result: isURI, Evaluated: true}
 }
 
 func evaluateNumeric(data string, metadata map[DataMetadata]EvaluationData) {
@@ -194,7 +194,10 @@ func evaluateNumeric(data string, metadata map[DataMetadata]EvaluationData) {
 }
 
 func evaluateBoolean(data string, metadata map[DataMetadata]EvaluationData) {
-	metadata[ValueMetadataBoolean] = EvaluationData{Result: data == "true" || data == "false"}
+	metadata[ValueMetadataBoolean] = EvaluationData{
+		Evaluated: true,
+		Result:    data == "true" || data == "false",
+	}
 }
 
 func evaluateUnicode(data string, metadata map[DataMetadata]EvaluationData) {
@@ -208,8 +211,8 @@ func evaluateUnicode(data string, metadata map[DataMetadata]EvaluationData) {
 }
 
 // IsInScope checks if any of the given metadata types match the criteria.
-func (v *DataMetadataList) IsInScope(metadataTypes []DataMetadata) bool {
-	for _, metadataType := range metadataTypes {
+func (v *DataMetadataList) IsInScope(allowedMetadatas []DataMetadata) bool {
+	for _, metadataType := range allowedMetadatas {
 		if positiveType, isNegative := MetadataMap[metadataType]; isNegative {
 			// Check negative metadata
 			if data, exists := v.EvaluationMap[positiveType]; exists && !data.Result {
