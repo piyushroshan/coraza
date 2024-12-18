@@ -62,7 +62,12 @@ func (m MatchData) ChainLevel() int {
 	return m.ChainLevel_
 }
 
-func (m *MatchData) IsInScope(allowedMetadatas []experimentalTypes.DataMetadata) bool {
+func (m *MatchData) IsInScope(allowedMetadatas []experimentalTypes.DataMetadata, attackType string) bool {
+	// Check the scope of attackType first.
+	if !(experimentalTypes.IsAttackInScope(attackType, m.Value_)) {
+		return false
+	}
+
 	// Evaluate the metadata if it's not set
 	if m.Metadata_ == nil {
 		m.Metadata_ = &experimentalTypes.DataMetadataList{}

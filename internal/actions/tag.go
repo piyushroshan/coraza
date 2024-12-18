@@ -42,6 +42,8 @@ func (a *tagFn) Init(r plugintypes.RuleMetadata, data string) error {
 				return fmt.Errorf("invalid metadata filter: %s", filter)
 			}
 		}
+	} else if strings.HasPrefix(data, "attack-") {
+		r.(*corazawaf.Rule).AddAttackType(data)
 	}
 	return nil
 }

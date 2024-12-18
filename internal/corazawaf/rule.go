@@ -149,6 +149,8 @@ type Rule struct {
 	withPhaseUnknownVariable bool
 
 	allowedMetadatas []experimentalTypes.DataMetadata
+
+	attackType string
 }
 
 func (r *Rule) ParentID() int {
@@ -161,6 +163,10 @@ func (r *Rule) Status() int {
 
 func (r *Rule) AllowedMetadatas() []experimentalTypes.DataMetadata {
 	return r.allowedMetadatas
+}
+
+func (r *Rule) AttackType() string {
+	return r.attackType
 }
 
 const chainLevelZero = 0
@@ -250,15 +256,17 @@ func (r *Rule) doEvaluate(logger debuglog.Logger, phase types.RulePhase, tx *Tra
 			vLog.Debug().Msg("Expanding arguments for rule")
 			allowedMetadatas := r.AllowedMetadatas()
 			vLog.Debug().Msg("Allowed metadata for rule" + fmt.Sprint(allowedMetadatas))
-      
-      args := make([]string, 1)
+			attackType := r.AttackType()
+			args := make([]string, 1)
 			var errs []error
 			var argsLen int
 			for i, arg := range values {
-				if tx.AllowMetadataInspection && len(allowedMetadatas) > 0 {
-					if !arg.IsInScope(allowedMetadatas) {
-						vLog.Debug().Msg("Skipping evaluation for " + arg.Key() + " because it is not in scope")
-						continue
+				if tx.AllowMetadataInspection {
+					if len(allowedMetadatas) > 0 {
+						if !arg.IsInScope(allowedMetadatas, attackType) {
+							vLog.Debug().Msg("Skipping evaluation for " + arg.Key() + " because it is not in scope")
+							continue
+						}
 					}
 				}
 				if r.MultiMatch {
@@ -633,6 +641,11 @@ func (r *Rule) AddAllowedMetadata(metadataName string) error {
 		return fmt.Errorf("invalid metadata %q not found", metadataName)
 	}
 	r.allowedMetadatas = append(r.allowedMetadatas, metadata)
+	return nil
+}
+
+func (r *Rule) AddAttackType(attackName string) error {
+	r.attackType = attackName
 	return nil
 }
 

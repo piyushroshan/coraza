@@ -4,6 +4,7 @@ package types
 
 import (
 	"net/url"
+	"strings"
 	"unicode"
 )
 
@@ -212,6 +213,8 @@ func evaluateUnicode(data string, metadata map[DataMetadata]EvaluationData) {
 
 // IsInScope checks if any of the given metadata types match the criteria.
 func (v *DataMetadataList) IsInScope(allowedMetadatas []DataMetadata) bool {
+	// First check special characters for that specific attackType;
+
 	for _, metadataType := range allowedMetadatas {
 		if positiveType, isNegative := MetadataMap[metadataType]; isNegative {
 			// Check negative metadata
@@ -226,4 +229,31 @@ func (v *DataMetadataList) IsInScope(allowedMetadatas []DataMetadata) bool {
 		}
 	}
 	return false
+}
+
+// Attack type to special characters
+var sqli_special_chars = []string{
+	"SELECT", "select", "Select", "DELETE", "ORDER BY", "create", "CREATE", "IS NULL", "DROP USER", "DROP TABLE",
+	"--", "db.", "=", "_", "'", "~", "|", "<", "#", "\\", "*", ">", ";", "(", "/", "+", "[", "—", "$eq", "regex",
+	")", "$ne", "$gt",
+}
+
+var real_xss_list = []string{">", "&", ";", "^", "#", ")", "<", "_", "/", "%", "$", "~", "}", "{", "\\", "(", "|", "document[", "document.", "confirm", "prompt", "constructor", "inurl", "Javascript", "alert", "innerHTML"}
+
+// IsAttackInScope checks if an attack-sqli pattern exists in data
+func IsAttackInScope(attackType string, data string) bool {
+	if attackType == "attack-sqli" {
+		for _, char := range sqli_special_chars {
+			if strings.Contains(data, char) {
+				return true
+			}
+		}
+	} else if attackType == "attack-xss" {
+		for _, char := range real_xss_list {
+			if strings.Contains(data, char) {
+				return true
+			}
+		}
+	}
+	return false // No attack detected
 }
