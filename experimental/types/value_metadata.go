@@ -240,8 +240,13 @@ var sqli_special_chars = []string{
 
 var real_xss_list = []string{">", "&", ";", "^", "#", ")", "<", "_", "/", "%", "$", "~", "}", "{", "\\", "(", "|", "document[", "document.", "confirm", "prompt", "constructor", "inurl", "Javascript", "alert", "innerHTML"}
 
+var real_rce_list = []rune{'`', '#', '%', '&', '-', '$', ']', ')', '_', ';', '@', '|', '*', ':', '/', '!', '}', '\''}
+
+// var real_ssti_list = []rune{'}', '%', ')', ']', '>'}
+
 // IsAttackInScope checks if an attack-sqli pattern exists in data
 func IsAttackInScope(attackType string, data string) bool {
+
 	if attackType == "attack-sqli" {
 		for _, char := range sqli_special_chars {
 			if strings.Contains(data, char) {
@@ -254,6 +259,36 @@ func IsAttackInScope(attackType string, data string) bool {
 				return true
 			}
 		}
+	} else if attackType == "attack-rce" {
+		for _, char := range real_rce_list {
+			if strings.ContainsRune(data, char) {
+				// fmt.Println("Checking scope for -", attackType, data)
+				return true
+			}
+		}
 	}
 	return false // No attack detected
 }
+
+// var attackPatterns = map[string][]string{
+// 	"attack-sqli": {
+// 		"SELECT", "select", "Select", "DELETE", "ORDER BY", "create", "CREATE", "IS NULL", "DROP USER", "DROP TABLE",
+// 		"--", "db.", "=", "_", "'", "~", "|", "<", "#", "\\", "*", ">", ";", "(", "/", "+", "[", "—", "$eq", "regex",
+// 		")", "$ne", "$gt",
+// 	},
+// 	"attack-xss": {">", "&", ";", "^", "#", ")", "<", "_", "/", "%", "$", "~", "}", "{", "\\", "(", "|", "document[", "document.", "confirm", "prompt", "constructor", "inurl", "Javascript", "alert", "innerHTML"},
+// }
+
+// // IsAttackInScope checks if an attack-sqli pattern exists in data
+// func IsAttackInScope(attackType string, data string) bool {
+// 	patterns, exists := attackPatterns[attackType]
+// 	if !exists || len(data) == 0 {
+// 		return false
+// 	}
+// 	for _, pattern := range patterns {
+// 		if strings.Contains(data, pattern) {
+// 			return true
+// 		}
+// 	}
+// 	return false
+// }
