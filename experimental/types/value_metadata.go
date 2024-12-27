@@ -240,7 +240,9 @@ var sqli_special_chars = []string{
 
 var real_xss_list = []string{">", "&", ";", "^", "#", ")", "<", "_", "/", "%", "$", "~", "}", "{", "\\", "(", "|", "document[", "document.", "confirm", "prompt", "constructor", "inurl", "Javascript", "alert", "innerHTML"}
 
-var real_rce_list = []rune{'`', '#', '%', '&', '-', '$', ']', ')', '_', ';', '@', '|', '*', ':', '/', '!', '}', '\''}
+var real_rce_list = []rune{'`', '#', '%', '&', '-', '$', ']', ')', '_', ';', '@', '|', '*', ':', '!', '}', '\''}
+
+var rce_list = []string{"which", "id", "dir", "cat", "ifconfig", "ipconfig", "echo", "net", "pwd", "route", "sleep", "systeminfo", "sysinfo", "uname", "curl", "which", "whoami", ""}
 
 // var real_ssti_list = []rune{'}', '%', ')', ']', '>'}
 
@@ -263,6 +265,11 @@ func IsAttackInScope(attackType string, data string) bool {
 		for _, char := range real_rce_list {
 			if strings.ContainsRune(data, char) {
 				// fmt.Println("Checking scope for -", attackType, data)
+				return true
+			}
+		}
+		for _, char := range rce_list {
+			if strings.Contains(data, char) {
 				return true
 			}
 		}
