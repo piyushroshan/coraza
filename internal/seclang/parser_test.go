@@ -1,4 +1,4 @@
-// Copyright 2022 Juan Pablo Tosso and the OWASP Coraza contributors
+// Copyright 2024 Juan Pablo Tosso and the OWASP Coraza contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package seclang
@@ -14,10 +14,11 @@ import (
 	"strings"
 	"testing"
 
-	coreruleset "github.com/corazawaf/coraza-coreruleset"
-	coraza "github.com/corazawaf/coraza/v3/internal/corazawaf"
 	"github.com/jcchavezs/mergefs"
 	"github.com/jcchavezs/mergefs/io"
+
+	coreruleset "github.com/corazawaf/coraza-coreruleset"
+	coraza "github.com/corazawaf/coraza/v3/internal/corazawaf"
 )
 
 //go:embed testdata
@@ -344,20 +345,34 @@ func TestErrorWithBackticks(t *testing.T) {
 func TestLoadConfigurationFile(t *testing.T) {
 	waf := coraza.NewWAF()
 	p := NewParser(waf)
-	err := p.FromFile("../../coraza.conf-recommended")
-	if err != nil {
-		t.Errorf("unexpected error: %s", err.Error())
-	}
 
-	err = p.FromFile("../doesnotexist.conf")
-	if err == nil {
-		t.Error("expected not found error")
-	}
+	t.Run("existing file", func(t *testing.T) {
+		err := p.FromFile("../../coraza.conf-recommended")
+		if err != nil {
+			t.Errorf("unexpected error: %s", err.Error())
+		}
+	})
 
-	err = p.FromFile("./testdata/glob/*.conf")
-	if err != nil {
-		t.Errorf("unexpected error: %s", err.Error())
-	}
+	t.Run("unexisting file", func(t *testing.T) {
+		err := p.FromFile("../doesnotexist.conf")
+		if err == nil {
+			t.Error("expected not found error")
+		}
+	})
+
+	t.Run("successful glob", func(t *testing.T) {
+		err := p.FromFile("./testdata/glob/*.conf")
+		if err != nil {
+			t.Errorf("unexpected error: %s", err.Error())
+		}
+	})
+
+	t.Run("empty glob result", func(t *testing.T) {
+		err := p.FromFile("./testdata/glob/*.comf")
+		if err != nil {
+			t.Errorf("unexpected error despite glob not matching any file")
+		}
+	})
 }
 
 // Connectors are supporting embedding github.com/corazawaf/coraza-coreruleset to ease CRS integration
