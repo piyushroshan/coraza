@@ -591,10 +591,6 @@ var (
 	transformationIDsLock  sync.RWMutex                 // Using RWMutex instead of Mutex for better read performance
 )
 
-func init() {
-	transformationNameToID[""] = 0
-}
-
 func transformationID(currentID int, transformationName string) int {
 	// First try reading with read lock
 	transformationIDsLock.RLock()
