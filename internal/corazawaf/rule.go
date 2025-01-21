@@ -608,19 +608,34 @@ func (r *Rule) AddVariableNegation(v variables.RuleVariable, key string) error {
 	return nil
 }
 
-var transformationIDToName = []string{""}
-var transformationNameToID = sync.Map{} // map[string]int
+var (
+	transformationIDToName = []string{""}
+	transformationNameToID = make(map[string]int, 1000) // Pre-allocate for better performance
+	transformationIDsLock  sync.RWMutex                 // Using RWMutex instead of Mutex for better read performance
+)
 
 func transformationID(currentID int, transformationName string) int {
+	transformationIDsLock.RLock()
 	currName := transformationIDToName[currentID]
 	nextName := fmt.Sprintf("%s+%s", currName, transformationName)
-	if id, ok := transformationNameToID.Load(nextName); ok {
-		return id.(int)
+	if id, ok := transformationNameToID[nextName]; ok {
+		transformationIDsLock.RUnlock()
+		return id
+	}
+	transformationIDsLock.RUnlock()
+
+	// If not found, acquire write lock
+	transformationIDsLock.Lock()
+	defer transformationIDsLock.Unlock()
+
+	// Double-check after acquiring write lock
+	if id, ok := transformationNameToID[nextName]; ok {
+		return id
 	}
 
 	id := len(transformationIDToName)
 	transformationIDToName = append(transformationIDToName, nextName)
-	transformationNameToID.Store(nextName, id)
+	transformationNameToID[nextName] = id
 	return id
 }
 
