@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"unsafe"
 
 	"github.com/corazawaf/coraza/v3/debuglog"
@@ -610,14 +609,11 @@ func (r *Rule) AddVariableNegation(v variables.RuleVariable, key string) error {
 	return nil
 }
 
-var transformationNameToID sync.Map
-
 func transformationID(currentID int, transformationName string) int {
 	nextName := strconv.Itoa(currentID) + "+" + transformationName
 	hasher := fnv.New64a()
 	hasher.Write([]byte(nextName))
 	id := int(hasher.Sum64())
-	transformationNameToID.LoadOrStore(id, nextName)
 	return id
 }
 
