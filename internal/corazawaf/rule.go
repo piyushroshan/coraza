@@ -5,9 +5,10 @@ package corazawaf
 
 import (
 	"fmt"
+	"hash/fnv"
 	"regexp"
+	"strconv"
 	"strings"
-	"sync"
 	"unsafe"
 
 	"github.com/corazawaf/coraza/v3/debuglog"
@@ -600,23 +601,11 @@ func (r *Rule) AddVariableNegation(v variables.RuleVariable, key string) error {
 	return nil
 }
 
-var transformationIDToName = []string{""}
-var transformationNameToID = map[string]int{"": 0}
-var transformationIDsLock = sync.Mutex{}
-
 func transformationID(currentID int, transformationName string) int {
-	transformationIDsLock.Lock()
-	defer transformationIDsLock.Unlock()
-
-	currName := transformationIDToName[currentID]
-	nextName := fmt.Sprintf("%s+%s", currName, transformationName)
-	if id, ok := transformationNameToID[nextName]; ok {
-		return id
-	}
-
-	id := len(transformationIDToName)
-	transformationIDToName = append(transformationIDToName, nextName)
-	transformationNameToID[nextName] = id
+	nextName := strconv.Itoa(currentID) + "+" + transformationName
+	hasher := fnv.New64a()
+	hasher.Write([]byte(nextName))
+	id := int(hasher.Sum64())
 	return id
 }
 
