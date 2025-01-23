@@ -5,14 +5,16 @@ package corazawaf
 
 import (
 	"fmt"
+	"hash/fnv"
 	"regexp"
+	"strconv"
 	"strings"
-	"sync"
 	"unsafe"
 
 	"github.com/corazawaf/coraza/v3/debuglog"
 	"github.com/corazawaf/coraza/v3/experimental/plugins/macro"
 	"github.com/corazawaf/coraza/v3/experimental/plugins/plugintypes"
+	experimentalTypes "github.com/corazawaf/coraza/v3/experimental/types"
 	"github.com/corazawaf/coraza/v3/internal/corazarules"
 	"github.com/corazawaf/coraza/v3/internal/memoize"
 	"github.com/corazawaf/coraza/v3/types"
@@ -146,6 +148,8 @@ type Rule struct {
 	// chainedRules containing rules with just PhaseUnknown variables, may potentially
 	// be anticipated. This boolean ensures that it happens
 	withPhaseUnknownVariable bool
+
+	allowedMetadatas []experimentalTypes.DataMetadata
 }
 
 func (r *Rule) ParentID() int {
@@ -156,6 +160,10 @@ func (r *Rule) Status() int {
 	return r.DisruptiveStatus
 }
 
+func (r *Rule) AllowedMetadatas() []experimentalTypes.DataMetadata {
+	return r.allowedMetadatas
+}
+
 const chainLevelZero = 0
 
 // Evaluate will evaluate the current rule for the indicated transaction
@@ -163,7 +171,7 @@ const chainLevelZero = 0
 // the matched variables, keys and values (MatchData)
 func (r *Rule) Evaluate(phase types.RulePhase, tx plugintypes.TransactionState, cache map[transformationKey]*transformationValue) {
 	// collectiveMatchedValues lives across recursive calls of doEvaluate
-	var collectiveMatchedValues []types.MatchData
+	var collectiveMatchedValues []experimentalTypes.MatchData
 
 	logger := tx.DebugLogger()
 
@@ -180,14 +188,14 @@ func (r *Rule) Evaluate(phase types.RulePhase, tx plugintypes.TransactionState, 
 
 const noID = 0
 
-func (r *Rule) doEvaluate(logger debuglog.Logger, phase types.RulePhase, tx *Transaction, collectiveMatchedValues *[]types.MatchData, chainLevel int, cache map[transformationKey]*transformationValue) []types.MatchData {
+func (r *Rule) doEvaluate(logger debuglog.Logger, phase types.RulePhase, tx *Transaction, collectiveMatchedValues *[]experimentalTypes.MatchData, chainLevel int, cache map[transformationKey]*transformationValue) []experimentalTypes.MatchData {
 	tx.Capture = r.Capture
 
 	if multiphaseEvaluation {
 		computeRuleChainMinPhase(r)
 	}
 
-	var matchedValues []types.MatchData
+	var matchedValues []experimentalTypes.MatchData
 	// we log if we are the parent rule
 	logger.Debug().Msg("Evaluating rule")
 	defer logger.Debug().Msg("Finished rule evaluation")
@@ -226,7 +234,7 @@ func (r *Rule) doEvaluate(logger debuglog.Logger, phase types.RulePhase, tx *Tra
 			if multiphaseEvaluation && multiphaseSkipVariable(r, v.Variable, phase) {
 				continue
 			}
-			var values []types.MatchData
+			var values []experimentalTypes.MatchData
 			for _, c := range ecol {
 				if c.Variable == v.Variable {
 					// TODO shall we check the pointer?
@@ -241,11 +249,19 @@ func (r *Rule) doEvaluate(logger debuglog.Logger, phase types.RulePhase, tx *Tra
 				vLog = logger.With(debuglog.Str("variable", v.Variable.Name()))
 			}
 			vLog.Debug().Msg("Expanding arguments for rule")
-
-			args := make([]string, 1)
+			allowedMetadatas := r.AllowedMetadatas()
+			vLog.Debug().Msg("Allowed metadata for rule" + fmt.Sprint(allowedMetadatas))
+      
+      args := make([]string, 1)
 			var errs []error
 			var argsLen int
 			for i, arg := range values {
+				if tx.AllowMetadataInspection && len(allowedMetadatas) > 0 {
+					if !arg.IsInScope(allowedMetadatas) {
+						vLog.Debug().Msg("Skipping evaluation for " + arg.Key() + " because it is not in scope")
+						continue
+					}
+				}
 				if r.MultiMatch {
 					args, errs = r.transformMultiMatchArg(arg)
 					argsLen = len(args)
@@ -390,14 +406,14 @@ func (r *Rule) doEvaluate(logger debuglog.Logger, phase types.RulePhase, tx *Tra
 	return matchedValues
 }
 
-func (r *Rule) transformMultiMatchArg(arg types.MatchData) ([]string, []error) {
+func (r *Rule) transformMultiMatchArg(arg experimentalTypes.MatchData) ([]string, []error) {
 	// TODOs:
 	// - We don't need to run every transformation. We could try for each until found
 	// - Cache is not used for multimatch
 	return r.executeTransformationsMultimatch(arg.Value())
 }
 
-func (r *Rule) transformArg(arg types.MatchData, argIdx int, cache map[transformationKey]*transformationValue) (string, []error) {
+func (r *Rule) transformArg(arg experimentalTypes.MatchData, argIdx int, cache map[transformationKey]*transformationValue) (string, []error) {
 	switch {
 	case len(r.transformations) == 0:
 		return arg.Value(), nil
@@ -585,23 +601,11 @@ func (r *Rule) AddVariableNegation(v variables.RuleVariable, key string) error {
 	return nil
 }
 
-var transformationIDToName = []string{""}
-var transformationNameToID = map[string]int{"": 0}
-var transformationIDsLock = sync.Mutex{}
-
 func transformationID(currentID int, transformationName string) int {
-	transformationIDsLock.Lock()
-	defer transformationIDsLock.Unlock()
-
-	currName := transformationIDToName[currentID]
-	nextName := fmt.Sprintf("%s+%s", currName, transformationName)
-	if id, ok := transformationNameToID[nextName]; ok {
-		return id
-	}
-
-	id := len(transformationIDToName)
-	transformationIDToName = append(transformationIDToName, nextName)
-	transformationNameToID[nextName] = id
+	nextName := strconv.Itoa(currentID) + "+" + transformationName
+	hasher := fnv.New64a()
+	hasher.Write([]byte(nextName))
+	id := int(hasher.Sum64())
 	return id
 }
 
@@ -613,6 +617,15 @@ func (r *Rule) AddTransformation(name string, t plugintypes.Transformation) erro
 	}
 	r.transformations = append(r.transformations, ruleTransformationParams{Function: t})
 	r.transformationsID = transformationID(r.transformationsID, name)
+	return nil
+}
+
+func (r *Rule) AddAllowedMetadata(metadataName string) error {
+	metadata, ok := experimentalTypes.NewValueMetadata(metadataName)
+	if !ok {
+		return fmt.Errorf("invalid metadata %q not found", metadataName)
+	}
+	r.allowedMetadatas = append(r.allowedMetadatas, metadata)
 	return nil
 }
 

@@ -8,9 +8,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/corazawaf/coraza/v3/collection"
+	"github.com/corazawaf/coraza/v3/experimental/collection"
+	"github.com/corazawaf/coraza/v3/experimental/types"
 	"github.com/corazawaf/coraza/v3/internal/corazarules"
-	"github.com/corazawaf/coraza/v3/types"
 	"github.com/corazawaf/coraza/v3/types/variables"
 )
 
@@ -80,7 +80,7 @@ func (c *NamedCollection) Reset() {
 	c.Map.Reset()
 }
 
-func (c *NamedCollection) Names(rv variables.RuleVariable) collection.Collection {
+func (c *NamedCollection) Names(rv variables.RuleVariable) collection.Keyed {
 	return &NamedCollectionNames{
 		variable:   rv,
 		collection: c,
@@ -101,11 +101,43 @@ type NamedCollectionNames struct {
 }
 
 func (c *NamedCollectionNames) FindRegex(key *regexp.Regexp) []types.MatchData {
-	panic("selection operator not supported")
+	var res []types.MatchData
+
+	for k, data := range c.collection.Map.data {
+		if !key.MatchString(k) {
+			continue
+		}
+		for _, d := range data {
+			res = append(res, &corazarules.MatchData{
+				Variable_: c.variable,
+				Key_:      d.key,
+				Value_:    d.key,
+			})
+		}
+	}
+	return res
 }
 
 func (c *NamedCollectionNames) FindString(key string) []types.MatchData {
-	panic("selection operator not supported")
+	var res []types.MatchData
+
+	for k, data := range c.collection.Map.data {
+		if k != key {
+			continue
+		}
+		for _, d := range data {
+			res = append(res, &corazarules.MatchData{
+				Variable_: c.variable,
+				Key_:      d.key,
+				Value_:    d.key,
+			})
+		}
+	}
+	return res
+}
+
+func (c *NamedCollectionNames) Get(key string) []string {
+	return c.collection.Map.Get(key)
 }
 
 func (c *NamedCollectionNames) FindAll() []types.MatchData {
