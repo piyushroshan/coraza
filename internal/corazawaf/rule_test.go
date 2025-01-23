@@ -5,7 +5,6 @@ package corazawaf
 
 import (
 	"errors"
-	"hash/fnv"
 	"strconv"
 	"strings"
 	"testing"
@@ -715,19 +714,17 @@ func TestGetTransformationID(t *testing.T) {
 		"t:none,t:utf8toUnicode,t:urlDecodeUni,t:removeNulls",
 		"t:none,t:utf8toUnicode,t:urlDecodeUni,t:removeNulls,t:cmdLine",
 	}
-	hashes := make(map[uint64]string)
+	hashes := make(map[int]string)
 	for _, value := range transformations_values {
 		// split the string by comma
 		transformations := strings.Split(value, ",")
 		currentID := 0
 		// iterate over the transformations
 		for _, transformation := range transformations {
-			transformation = strings.Split(strings.Trim(transformation, " "), ":")[1]
-			nextName := strconv.Itoa(currentID) + "+" + transformation
-			hasher := fnv.New64a()
-			hasher.Write([]byte(nextName))
-			id := hasher.Sum64()
+			transformationName := strings.Split(strings.Trim(transformation, " "), ":")[1]
+			id := transformationID(currentID, transformationName)
 			oldname, ok := hashes[id]
+			nextName := strconv.Itoa(currentID) + "+" + transformationName
 			if ok {
 				assert.Equal(t, oldname, nextName, "Hash collision detected for %s and %s:: %d", oldname, nextName, id)
 			}
