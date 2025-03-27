@@ -211,18 +211,14 @@ func evaluateUnicode(data string, metadata map[DataMetadata]EvaluationData) {
 	metadata[ValueMetadataUnicode] = EvaluationData{Result: false, Evaluated: true}
 }
 
-// IsInScope checks if any of the given metadata types match the criteria.
 func (v *DataMetadataList) IsInScope(allowedMetadatas []DataMetadata) bool {
-	// First check special characters for that specific attackType;
 
 	for _, metadataType := range allowedMetadatas {
 		if positiveType, isNegative := MetadataMap[metadataType]; isNegative {
-			// Check negative metadata
 			if data, exists := v.EvaluationMap[positiveType]; exists && !data.Result {
 				return true
 			}
 		} else {
-			// Check positive metadata
 			if data, exists := v.EvaluationMap[metadataType]; exists && data.Result {
 				return true
 			}
@@ -240,35 +236,7 @@ var sqli_special_chars = []string{
 
 var real_xss_list = []string{">", "&", ";", "^", "#", ")", "<", "_", "/", "%", "$", "~", "}", "{", "\\", "(", "|", "document[", "document.", "confirm", "prompt", "constructor", "inurl", "Javascript", "alert", "innerHTML"}
 
-// var real_rce_list = []rune{'`', '#', '%', '&', '-', '$', ']', ')', '_', ';', '@', '|', '*', ':', '!', '}', '\''}
-
-// var rce_list = []string{"which", "id", "dir", "cat", "ifconfig", "ipconfig", "echo", "net", "pwd", "route", "sleep", "systeminfo", "sysinfo", "uname", "curl", "which", "whoami", ""}
-
-var rce_list = []string{
-	"hosts", "ini", "033", "Class", "]", "phpversion", "netsh", "4448", "testing", "which", "lvvp", "STDERR",
-	"CurrentControlSet", "bash", "rfi", "INJECTX", "phpsystem_get", "secret", "netstat", "exec", "2Awget",
-	"192", "PF_INET", "etc", "135", "all", "x4096", "Settings", ":", "lhtR", "2Acurl", "(", "|", "STDIN",
-	"user", "REG_DWORD", "22fd2wdf", "tmp", "0Aid", "SAM", "4444", "2curl", "add", "boot", "20cmd", "Type",
-	"hexdec", "hacker", "1235", "{", "Documents", "alert", "quot",
-	"sockaddr_in", "jdfj2jc", "x81920", "4445", "md5", "127", "ipconfig", "sysinfo", "http", "x1024", "!",
-	"shell", "Control", "ping", "\"", "disable", "vuln", "%", "onload", "HTTP_USER_AGENT", "localgroup",
-	"tcp", "system", "=", "443", "4446", "x16096", "name", "2wget", "firewall", "\\", "var", "xss", "rev",
-	"python", "inet_aton", "shadow", "SYSTEM", "page", "https", "151", "nid", "2Asleep", "dir", "php",
-	"index", "0Acat", "_SERVER", "use", "xerosecurity", "usr", "vulnerable", "com", "HKLM", "x2048", "and",
-	"include", "uname", "print", "grep", "cat", "158", "plain", "Password1", "ifconfig", "sleep", "}",
-	"shellshock", ">", ")", "prompt", "crowdshield", " ", "cmd", "open", "Server", "systeminfo", "1234",
-	"repair", "get_user_file", "130", "@", "net", "phpinfo", "Windows", "rce_vuln", "wget", "socket",
-	"fDenyTSConnections", "curl", "term_escape", "type", "<", "view", "route", "set", "home", "Socket",
-	"passwd", "getprotobyname", "SOCK_STREAM", "necho", "x8096", "bin", "_GET", "method", "RCEVulnerable",
-	"_", "&", "#", "nexit", "?", "SYSTEMROOT", "4447", "pwd", "endfor", "STDOUT", "root", "whoami",
-	"Administrators", ";", "person", "$", "dechex", "src", "XXXXXXXXXXX", "df2fkjj", "script", "config",
-	"text", "22jjffjbn", "opmode", "echo", "txt", "test", "gcc", "netcat", "System", "nXSUCCESS", "www",
-	"168", "x8192", "1237", "Content", "-", "/", "rce", "22fd2w23", "laR", "img", "perl", "reg", "WINNT",
-	"+", "req", "1236", "*", "[", "connect", "html", "eval", "For", "ADD", "Users", "`", "base", "x16384",
-	"Terminal", "subclasses", "onerror",
-}
-
-// var real_ssti_list = []rune{'}', '%', ')', ']', '>'}
+var real_ssti_list = []rune{'}', '%', ')', ']', '>'}
 
 // IsAttackInScope checks if an attack-sqli pattern exists in data
 func IsAttackInScope(attackType string, data string) bool {
@@ -286,40 +254,14 @@ func IsAttackInScope(attackType string, data string) bool {
 			}
 		}
 	} else if attackType == "attack-rce" {
-		// for _, char := range real_rce_list {
-		// 	if strings.ContainsRune(data, char) {
-		// 		// fmt.Println("Checking scope for -", attackType, data)
-		// 		return true
-		// 	}
-		// }
-		for _, char := range rce_list {
-			if strings.Contains(data, char) {
+		// TODO: Implement RCE detection - Maybe add after taking into-account the special characters
+		return true
+	} else if attackType == "attack-ssti" {
+		for _, char := range real_ssti_list {
+			if strings.ContainsRune(data, char) {
 				return true
 			}
 		}
 	}
-	return false // No attack detected
+	return false
 }
-
-// var attackPatterns = map[string][]string{
-// 	"attack-sqli": {
-// 		"SELECT", "select", "Select", "DELETE", "ORDER BY", "create", "CREATE", "IS NULL", "DROP USER", "DROP TABLE",
-// 		"--", "db.", "=", "_", "'", "~", "|", "<", "#", "\\", "*", ">", ";", "(", "/", "+", "[", "—", "$eq", "regex",
-// 		")", "$ne", "$gt",
-// 	},
-// 	"attack-xss": {">", "&", ";", "^", "#", ")", "<", "_", "/", "%", "$", "~", "}", "{", "\\", "(", "|", "document[", "document.", "confirm", "prompt", "constructor", "inurl", "Javascript", "alert", "innerHTML"},
-// }
-
-// // IsAttackInScope checks if an attack-sqli pattern exists in data
-// func IsAttackInScope(attackType string, data string) bool {
-// 	patterns, exists := attackPatterns[attackType]
-// 	if !exists || len(data) == 0 {
-// 		return false
-// 	}
-// 	for _, pattern := range patterns {
-// 		if strings.Contains(data, pattern) {
-// 			return true
-// 		}
-// 	}
-// 	return false
-// }
