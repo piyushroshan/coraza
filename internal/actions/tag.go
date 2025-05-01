@@ -44,6 +44,8 @@ func (a *tagFn) Init(r plugintypes.RuleMetadata, data string) error {
 		}
 	} else if strings.HasPrefix(data, "attack-") {
 		r.(*corazawaf.Rule).AddAttackType(data)
+	} else if strings.HasPrefix(data, "sub-type/attack-") {
+		r.(*corazawaf.Rule).AddAttackType(data)
 	}
 	return nil
 }

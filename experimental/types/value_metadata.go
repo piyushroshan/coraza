@@ -238,6 +238,10 @@ var real_xss_list = []string{">", "&", ";", "^", "#", ")", "<", "_", "/", "%", "
 
 var real_ssti_list = []rune{'}', '%', ')', ']', '>'}
 
+// (?:;|\{|\||\|\||&|&&|\n|\r|\$\(|\$\(\(|`|\${|<\(|>\(|\(\s*\))
+
+var real_rce_unix_safe = []string{";", "|", "||", "&", "&&", "\n", "\r", "$(", "$$(", "`", "${", "<(", ">("}
+
 // IsAttackInScope checks if an attack-sqli pattern exists in data
 func IsAttackInScope(attackType string, data string) bool {
 
@@ -253,9 +257,12 @@ func IsAttackInScope(attackType string, data string) bool {
 				return true
 			}
 		}
-	} else if attackType == "attack-rce" {
-		// TODO: Implement RCE detection - Maybe add after taking into-account the special characters
-		return true
+	} else if attackType == "sub-type/attack-rce-unix-safe" {
+		for _, char := range real_rce_unix_safe {
+			if strings.Contains(data, char) {
+				return true
+			}
+		}
 	} else if attackType == "attack-ssti" {
 		for _, char := range real_ssti_list {
 			if strings.ContainsRune(data, char) {
