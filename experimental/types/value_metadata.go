@@ -104,7 +104,7 @@ type DataMetadataList struct {
 	EvaluationMap map[DataMetadata]EvaluationData
 }
 
-// NewDataMetadataList creates a new DataMetadataList with initialized fields.
+// NewDataMetadataList creates a new DataMetadataList with initializegitd fields.
 func NewDataMetadataList() DataMetadataList {
 	return DataMetadataList{
 		EvaluationMap: make(map[DataMetadata]EvaluationData),
@@ -237,8 +237,6 @@ var sqli_special_chars = []string{
 var real_xss_list = []string{">", "&", ";", "^", "#", ")", "<", "_", "/", "%", "$", "~", "}", "{", "\\", "(", "|", "document[", "document.", "confirm", "prompt", "constructor", "inurl", "Javascript", "alert", "innerHTML"}
 
 var real_ssti_list = []rune{'}', '%', ')', ']', '>'}
-
-// (?:;|\{|\||\|\||&|&&|\n|\r|\$\(|\$\(\(|`|\${|<\(|>\(|\(\s*\))
 
 var real_rce_unix_safe = []string{";", "|", "||", "&", "&&", "\n", "\r", "$(", "$$(", "`", "${", "<(", ">("}
 
