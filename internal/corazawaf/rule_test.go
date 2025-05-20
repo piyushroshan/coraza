@@ -387,23 +387,6 @@ func TestAddTransformation(t *testing.T) {
 	}
 }
 
-func BenchmarkAddTransformationUnique(b *testing.B) {
-	transformation := func(input string) (string, bool, error) {
-		return "Test", true, nil
-	}
-	b.ResetTimer()
-	b.RunParallel(func(p *testing.PB) {
-		rule := NewRule()
-		for p.Next() {
-			transformationName := "transformation" + b.Name()
-			err := rule.AddTransformation(transformationName, transformation)
-			if err != nil {
-				b.Fatalf("Failed to add a transformation: %s", err.Error())
-			}
-		}
-	})
-}
-
 func BenchmarkAddTransformationSame(b *testing.B) {
 	transformation := func(input string) (string, bool, error) {
 		return "Test", true, nil
@@ -654,36 +637,6 @@ func TestExpandMacroAfterWholeRuleEvaluation(t *testing.T) {
 	}
 }
 
-func BenchmarkAddTransformationSame(b *testing.B) {
-	transformation := func(input string) (string, bool, error) {
-		return "Test", true, nil
-	}
-	b.ResetTimer()
-	rule := NewRule()
-	for i := 0; i < b.N; i++ {
-		transformationName := "transformation"
-		err := rule.AddTransformation(transformationName, transformation)
-		if err != nil {
-			b.Fatalf("Failed to add a transformation: %s", err.Error())
-		}
-	}
-}
-
-func BenchmarkAddTransformationUnique(b *testing.B) {
-	transformation := func(input string) (string, bool, error) {
-		return "Test", true, nil
-	}
-	b.ResetTimer()
-	rule := NewRule()
-	for	i := 0; i < b.N; i++ {
-		transformationName := "transformation" + b.Name()
-		err := rule.AddTransformation(transformationName, transformation)
-		if err != nil {
-			b.Fatalf("Failed to add a transformation: %s", err.Error())
-		}
-	}
-}
-
 func BenchmarkAddTransformationUniqueParallel(b *testing.B) {
 	transformation := func(input string) (string, bool, error) {
 		return "Test", true, nil
@@ -700,7 +653,6 @@ func BenchmarkAddTransformationUniqueParallel(b *testing.B) {
 		}
 	})
 }
-
 
 func BenchmarkAddTransformationSameParallel(b *testing.B) {
 	transformation := func(input string) (string, bool, error) {
@@ -721,7 +673,7 @@ func BenchmarkAddTransformationSameParallel(b *testing.B) {
 
 func TestGetTransformationID(t *testing.T) {
 	// create an array of transformations using following string
- transformations_values := []string{
+	transformations_values := []string{
 		"t:none,t:lowercase",
 		"t:none",
 		"t:none,t:htmlEntityDecode",
