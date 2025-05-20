@@ -6,6 +6,7 @@ package corazawaf
 import (
 	"errors"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/corazawaf/coraza/v3/debuglog"
@@ -15,6 +16,7 @@ import (
 	"github.com/corazawaf/coraza/v3/internal/corazarules"
 	"github.com/corazawaf/coraza/v3/types"
 	"github.com/corazawaf/coraza/v3/types/variables"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMatchEvaluate(t *testing.T) {
@@ -649,5 +651,121 @@ func TestExpandMacroAfterWholeRuleEvaluation(t *testing.T) {
 	}
 	if matchdata[0].Data() != "ARGS_GET:test-data" {
 		t.Errorf("Expected ArgsGet-data, got %s", matchdata[0].Data())
+	}
+}
+
+func BenchmarkAddTransformationSame(b *testing.B) {
+	transformation := func(input string) (string, bool, error) {
+		return "Test", true, nil
+	}
+	b.ResetTimer()
+	rule := NewRule()
+	for i := 0; i < b.N; i++ {
+		transformationName := "transformation"
+		err := rule.AddTransformation(transformationName, transformation)
+		if err != nil {
+			b.Fatalf("Failed to add a transformation: %s", err.Error())
+		}
+	}
+}
+
+func BenchmarkAddTransformationUnique(b *testing.B) {
+	transformation := func(input string) (string, bool, error) {
+		return "Test", true, nil
+	}
+	b.ResetTimer()
+	rule := NewRule()
+	for	i := 0; i < b.N; i++ {
+		transformationName := "transformation" + b.Name()
+		err := rule.AddTransformation(transformationName, transformation)
+		if err != nil {
+			b.Fatalf("Failed to add a transformation: %s", err.Error())
+		}
+	}
+}
+
+func BenchmarkAddTransformationUniqueParallel(b *testing.B) {
+	transformation := func(input string) (string, bool, error) {
+		return "Test", true, nil
+	}
+	b.ResetTimer()
+	b.RunParallel(func(p *testing.PB) {
+		rule := NewRule()
+		for p.Next() {
+			transformationName := "transformation" + b.Name()
+			err := rule.AddTransformation(transformationName, transformation)
+			if err != nil {
+				b.Fatalf("Failed to add a transformation: %s", err.Error())
+			}
+		}
+	})
+}
+
+
+func BenchmarkAddTransformationSameParallel(b *testing.B) {
+	transformation := func(input string) (string, bool, error) {
+		return "Test", true, nil
+	}
+	b.ResetTimer()
+	b.RunParallel(func(p *testing.PB) {
+		for p.Next() {
+			rule := NewRule()
+			transformationName := "transformation"
+			err := rule.AddTransformation(transformationName, transformation)
+			if err != nil {
+				b.Fatalf("Failed to add a transformation: %s", err.Error())
+			}
+		}
+	})
+}
+
+func TestGetTransformationID(t *testing.T) {
+	// create an array of transformations using following string
+ transformations_values := []string{
+		"t:none,t:lowercase",
+		"t:none",
+		"t:none,t:htmlEntityDecode",
+		"t:none,t:lowercase",
+		"t:none,t:lowercase,t:removeWhiteSpace",
+		"t:none,t:urlDecode",
+		"t:none,t:urlDecode,t:urlDecodeUni",
+		"t:none,t:urlDecodeUni",
+		"t:none,t:urlDecodeUni,t:base64Decode",
+		"t:none,t:urlDecodeUni,t:cmdLine",
+		"t:none,t:urlDecodeUni,t:cmdLine,t:lowercase,t:removeWhiteSpace",
+		"t:none,t:urlDecodeUni,t:cmdLine,t:normalizePath,t:lowercase,t:removeWhiteSpace",
+		"t:none,t:urlDecodeUni,t:compressWhitespace",
+		"t:none,t:urlDecodeUni,t:htmlEntityDecode",
+		"t:none,t:urlDecodeUni,t:htmlEntityDecode,t:lowercase",
+		"t:none,t:urlDecodeUni,t:lowercase",
+		"t:none,t:urlDecodeUni,t:lowercase,t:urlDecode,t:htmlEntityDecode,t:jsDecode",
+		"t:none,t:urlDecodeUni,t:replaceComments",
+		"t:none,t:urlDecodeUni,t:urlDecode,t:htmlEntityDecode,t:jsDecode",
+		"t:none,t:utf8toUnicode,t:urlDecodeUni,t:compressWhitespace",
+		"t:none,t:utf8toUnicode,t:urlDecodeUni,t:htmlEntityDecode,t:jsDecode,t:cssDecode,t:lowercase,t:removeNulls",
+		"t:none,t:utf8toUnicode,t:urlDecodeUni,t:htmlEntityDecode,t:jsDecode,t:cssDecode,t:removeNulls",
+		"t:none,t:utf8toUnicode,t:urlDecodeUni,t:lowercase",
+		"t:none,t:utf8toUnicode,t:urlDecodeUni,t:normalizePathWin,t:lowercase,t:removeWhiteSpace",
+		"t:none,t:utf8toUnicode,t:urlDecodeUni,t:removeNulls",
+		"t:none,t:utf8toUnicode,t:urlDecodeUni,t:removeNulls,t:cmdLine",
+	}
+	hashes := make(map[int]string)
+	for _, value := range transformations_values {
+		// split the string by comma
+		transformations := strings.Split(value, ",")
+		currentID := 0
+		// iterate over the transformations
+		for _, transformation := range transformations {
+			transformationName := strings.Split(strings.Trim(transformation, " "), ":")[1]
+			id := transformationID(currentID, transformationName)
+			oldname, ok := hashes[id]
+			nextName := strconv.Itoa(currentID) + "+" + transformationName
+			if ok {
+				assert.Equal(t, oldname, nextName, "Hash collision detected for %s and %s:: %d", oldname, nextName, id)
+			}
+			hashes[id] = nextName
+			currentID = int(id)
+			assert.NotEqual(t, id, 0)
+		}
 	}
 }
