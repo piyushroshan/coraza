@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -100,6 +101,9 @@ func TestDisabledMetadataTagsInspection(t *testing.T) {
 		t.Error("Transaction interrupted")
 	}
 	matchedRules := tx.MatchedRules()
+	sort.Slice(matchedRules, func(i, j int) bool {
+		return matchedRules[i].Rule().ID() < matchedRules[j].Rule().ID()
+	})
 	if len(matchedRules) != 5 {
 		t.Errorf("Expected 4 matched rule, got %d", len(matchedRules))
 	}
