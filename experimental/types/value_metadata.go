@@ -4,7 +4,6 @@ package types
 
 import (
 	"net/url"
-	"strings"
 	"unicode"
 )
 
@@ -104,7 +103,7 @@ type DataMetadataList struct {
 	EvaluationMap map[DataMetadata]EvaluationData
 }
 
-// NewDataMetadataList creates a new DataMetadataList with initializegitd fields.
+// NewDataMetadataList creates a new DataMetadataList with initialized fields.
 func NewDataMetadataList() DataMetadataList {
 	return DataMetadataList{
 		EvaluationMap: make(map[DataMetadata]EvaluationData),
@@ -220,50 +219,6 @@ func (v *DataMetadataList) IsInScope(allowedMetadatas []DataMetadata) bool {
 			}
 		} else {
 			if data, exists := v.EvaluationMap[metadataType]; exists && data.Result {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// Attack type to special characters
-var sqli_special_chars = []string{
-	"SELECT", "select", "Select", "DELETE", "ORDER BY", "create", "CREATE", "IS NULL", "DROP USER", "DROP TABLE",
-	"--", "db.", "=", "_", "'", "~", "|", "<", "#", "\\", "*", ">", ";", "(", "/", "+", "[", "—", "$eq", "regex",
-	")", "$ne", "$gt",
-}
-
-var real_xss_list = []string{">", "&", ";", "^", "#", ")", "<", "_", "/", "%", "$", "~", "}", "{", "\\", "(", "|", "document[", "document.", "confirm", "prompt", "constructor", "inurl", "Javascript", "alert", "innerHTML"}
-
-var real_ssti_list = []rune{'}', '%', ')', ']', '>'}
-
-var real_rce_unix_safe = []string{";", "|", "||", "&", "&&", "\n", "\r", "$(", "$$(", "`", "${", "<(", ">("}
-
-// IsAttackInScope checks if an attack-sqli pattern exists in data
-func IsAttackInScope(attackType string, data string) bool {
-
-	if attackType == "attack-sqli" {
-		for _, char := range sqli_special_chars {
-			if strings.Contains(data, char) {
-				return true
-			}
-		}
-	} else if attackType == "attack-xss" {
-		for _, char := range real_xss_list {
-			if strings.Contains(data, char) {
-				return true
-			}
-		}
-	} else if attackType == "sub-type/attack-rce-unix-safe" {
-		for _, char := range real_rce_unix_safe {
-			if strings.Contains(data, char) {
-				return true
-			}
-		}
-	} else if attackType == "attack-ssti" {
-		for _, char := range real_ssti_list {
-			if strings.ContainsRune(data, char) {
 				return true
 			}
 		}
